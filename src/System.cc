@@ -192,6 +192,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
                              mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, settings_, strSequence);
 
     //Initialize the Local Mapping thread and launch
+    cout << "Initializing LocalMapping" << endl;
     mpLocalMapper = new LocalMapping(this, mpAtlas, mSensor==MONOCULAR || mSensor==IMU_MONOCULAR,
                                      mSensor==IMU_MONOCULAR || mSensor==IMU_STEREO || mSensor==IMU_RGBD, strSequence);
     mptLocalMapping = new thread(&ORB_SLAM3::LocalMapping::Run,mpLocalMapper);
@@ -209,10 +210,12 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpLocalMapper->mbFarPoints = false;
 
     //Initialize the Loop Closing thread and launch
+    cout << "Initializing Loop Closing" << endl;
     // mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR
     mpLoopCloser = new LoopClosing(mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR, activeLC); // mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM3::LoopClosing::Run, mpLoopCloser);
 
+    cout << "Setting pointers" << endl;
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
@@ -225,19 +228,26 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     //usleep(10*1000*1000);
 
+    cout << "Initializing viewer" << endl;
     //Initialize the Viewer thread and launch
     if(bUseViewer)
     //if(false) // TODO
     {
+    	cout << "New Viewer" << endl;
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile,settings_);
+    	cout << "New Thread" << endl;
         mptViewer = new thread(&Viewer::Run, mpViewer);
+    	cout << "Set Viewer" << endl;
         mpTracker->SetViewer(mpViewer);
+        cout << "mpLoopCloser" << endl;
         mpLoopCloser->mpViewer = mpViewer;
+        cout << "both" << endl;
         mpViewer->both = mpFrameDrawer->both;
+        cout << "check" <<endl;
     }
 
     // Fix verbosity
-    Verbose::SetTh(Verbose::VERBOSITY_QUIET);
+    //Verbose::SetTh(Verbose::VERBOSITY_QUIET);
 
 }
 

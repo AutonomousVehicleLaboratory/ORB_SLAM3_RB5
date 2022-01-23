@@ -54,12 +54,14 @@ int main(int argc, char **argv)
     }    
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR,true);
+    ROS_INFO("Started SLAM system setup");
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR,false);
+    ROS_INFO("Finished SLAM system setup");
 
     ImageGrabber igb(&SLAM);
 
     ros::NodeHandle nodeHandler;
-    ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage,&igb);
+    ros::Subscriber sub = nodeHandler.subscribe("/camera_0", 1, &ImageGrabber::GrabImage,&igb);
 
     ros::spin();
 
@@ -76,6 +78,7 @@ int main(int argc, char **argv)
 
 void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
 {
+    ROS_INFO("A message is received");
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptr;
     try
@@ -88,7 +91,17 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
         return;
     }
 
-    mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
+    ROS_INFO("Resize Image");
+    cv::Mat img;
+    cv::resize(cv_ptr->image, img, cv::Size(752, 480), cv::INTER_LINEAR);
+
+    ROS_INFO("track using this image");
+    Sophus::SE3f se3_tf = mpSLAM->TrackMonocular(img,cv_ptr->header.stamp.toSec());
+    ROS_INFO("image tracked");
+
+    cout << se3_tf.rotationMatrix()<< endl;
+    cout << se3_tf.translation() << endl;
+
 }
 
 
