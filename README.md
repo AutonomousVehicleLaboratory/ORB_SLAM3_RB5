@@ -1,3 +1,16 @@
+# ORB_SLAM3_RB5
+The original ORB_SLAM3 doesn't compile properly on RB5.
+This version was tested compiled properly and the Monocular version was tested running properly.
+
+Note that on RB5, the visualization needs to be disabled. This is the last parameter for initializing an ORB_SLAM3 system, just set it to false. However, the same code can run on a Ubuntu Destop matchine with gnome desktop and you can set it to true to see the visualization.
+
+Follow the instructions in the orginal repo to build it (appended).
+
+After building the ros module, start a roscore and test the Monocular version by running
+bash run_ros_orbslam3.sh
+Notice that we are using the Examples_old/Monocular/rb5_camera_0_dp.yaml for camera matrix and this needs to be changed for each camera.
+
+
 # ORB-SLAM3
 
 ### V1.0, December 22th, 2021

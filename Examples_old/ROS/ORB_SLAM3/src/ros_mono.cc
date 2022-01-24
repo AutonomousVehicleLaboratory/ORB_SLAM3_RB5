@@ -16,29 +16,30 @@
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <iostream>
+#include <algorithm>
+#include <fstream>
+#include <chrono>
 
-#include<iostream>
-#include<algorithm>
-#include<fstream>
-#include<chrono>
-
-#include<ros/ros.h>
+#include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 
-#include<opencv2/core/core.hpp>
+#include <opencv2/core/core.hpp>
 
-#include"../../../include/System.h"
+#include "../../../include/System.h"
 
 using namespace std;
+
+static int cameraWidth, cameraHeight;
 
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM3::System* pSLAM):mpSLAM(pSLAM){}
+    ImageGrabber(ORB_SLAM3::System *pSLAM) : mpSLAM(pSLAM) {}
 
-    void GrabImage(const sensor_msgs::ImageConstPtr& msg);
+    void GrabImage(const sensor_msgs::ImageConstPtr &msg);
 
-    ORB_SLAM3::System* mpSLAM;
+    ORB_SLAM3::System *mpSLAM;
 };
 
 int main(int argc, char **argv)
@@ -46,22 +47,28 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Mono");
     ros::start();
 
-    if(argc != 3)
+    if (argc != 3)
     {
-        cerr << endl << "Usage: rosrun ORB_SLAM3 Mono path_to_vocabulary path_to_settings" << endl;        
+        cerr << endl
+             << "Usage: rosrun ORB_SLAM3 Mono path_to_vocabulary path_to_settings" << endl;
         ros::shutdown();
         return 1;
-    }    
+    }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ROS_INFO("Started SLAM system setup");
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR,false);
+    ORB_SLAM3::System SLAM(argv[1], argv[2], ORB_SLAM3::System::MONOCULAR, false);
     ROS_INFO("Finished SLAM system setup");
+
+    // Load camera parameters from settings file
+    cv::FileStorage fSettings(argv[2], cv::FileStorage::READ);
+    cameraWidth = fSettings["Camera.width"].operator int();
+    cameraHeight = fSettings["Camera.height"].operator int();
 
     ImageGrabber igb(&SLAM);
 
     ros::NodeHandle nodeHandler;
-    ros::Subscriber sub = nodeHandler.subscribe("/camera_0", 1, &ImageGrabber::GrabImage,&igb);
+    ros::Subscriber sub = nodeHandler.subscribe("/camera_0", 1, &ImageGrabber::GrabImage, &igb);
 
     ros::spin();
 
@@ -76,7 +83,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
+void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr &msg)
 {
     ROS_INFO("A message is received");
     // Copy the ros image message to cv::Mat.
@@ -85,23 +92,28 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
     {
         cv_ptr = cv_bridge::toCvShare(msg);
     }
-    catch (cv_bridge::Exception& e)
+    catch (cv_bridge::Exception &e)
     {
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
 
-    ROS_INFO("Resize Image");
+    // ROS_INFO("Resize Image");
     cv::Mat img;
-    cv::resize(cv_ptr->image, img, cv::Size(752, 480), cv::INTER_LINEAR);
+    
+    if (cv_ptr->image.cols != cameraWidth or 
+        cv_ptr->image.rows != cameraHeight) {
+        ROS_INFO("Resize image from (%d, %d) to (%d, %d).", cv_ptr->image.cols, cv_ptr->image.rows, cameraWidth, cameraHeight);
+        cv::resize(cv_ptr->image, img, cv::Size(cameraWidth, cameraHeight), cv::INTER_LINEAR);
+    }
+    else{
+        img = cv_ptr->image;
+    }
 
-    ROS_INFO("track using this image");
-    Sophus::SE3f se3_tf = mpSLAM->TrackMonocular(img,cv_ptr->header.stamp.toSec());
-    ROS_INFO("image tracked");
+    // ROS_INFO("track using this image");
+    Sophus::SE3f se3_tf = mpSLAM->TrackMonocular(img, cv_ptr->header.stamp.toSec());
+    // ROS_INFO("image tracked");
 
-    cout << se3_tf.rotationMatrix()<< endl;
+    cout << se3_tf.rotationMatrix() << endl;
     cout << se3_tf.translation() << endl;
-
 }
-
-
