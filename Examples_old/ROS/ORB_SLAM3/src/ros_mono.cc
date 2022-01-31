@@ -22,8 +22,10 @@
 #include <chrono>
 
 #include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
 #include <cv_bridge/cv_bridge.h>
 
+#include <Eigen/Core>
 #include <opencv2/core/core.hpp>
 
 #include "../../../include/System.h"
@@ -35,11 +37,22 @@ static int cameraWidth, cameraHeight;
 class ImageGrabber
 {
 public:
+    int count = 0;
     ImageGrabber(ORB_SLAM3::System *pSLAM) : mpSLAM(pSLAM) {}
-
+    
+    void PublishPose(
+        const Sophus::SE3f& T, 
+        const ros::Time& stamp,
+        const string& frame_id, 
+        const string& child_frame_id,
+        tf::TransformBroadcaster& tf_br
+    );
+    
     void GrabImage(const sensor_msgs::ImageConstPtr &msg);
 
     ORB_SLAM3::System *mpSLAM;
+
+    
 };
 
 int main(int argc, char **argv)
@@ -116,4 +129,28 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr &msg)
 
     cout << se3_tf.rotationMatrix() << endl;
     cout << se3_tf.translation() << endl;
+
+    string frame_id("map");
+    string child_frame_id("camera_");
+    child_frame_id = child_frame_id + to_string(count);
+    count += 1;
+    ros::Time stamp = msg->header.stamp;
+    static tf::TransformBroadcaster br;
+    PublishPose(se3_tf, stamp, frame_id, child_frame_id, br);
+}
+
+
+void ImageGrabber::PublishPose(
+    const Sophus::SE3f& T, 
+    const ros::Time& stamp,
+    const string& frame_id, 
+    const string& child_frame_id,
+    tf::TransformBroadcaster& tf_br)
+{
+    tf::Transform transform_msg;
+    Eigen::Quaternionf q(T.rotationMatrix());
+    transform_msg.setOrigin(tf::Vector3(T.translation().x(), T.translation().y(), T.translation().z()));
+    tf::Quaternion tf_q; tf_q.setX(q.x()); tf_q.setY(q.y()); tf_q.setZ(q.z()); tf_q.setW(q.w());
+    transform_msg.setRotation(tf_q);
+    tf_br.sendTransform(tf::StampedTransform(transform_msg, stamp, frame_id, child_frame_id));
 }
